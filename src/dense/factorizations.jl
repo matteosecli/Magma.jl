@@ -1,12 +1,16 @@
-for (geev,gesvd,gesdd,elty,relty) in (
-    (:magma_dgeev,:magma_dgesvd,:magma_dgesdd,:Float64,:Float64),
-    (:magma_sgeev,:magma_sgesvd,:magma_sgesdd,:Float32,:Float32),
-    (:magma_cgeev,:magma_cgesvd,:magma_cgesdd,:ComplexF32,:Float32),
-    (:magma_zgeev,:magma_zgesvd,:magma_zgesdd,:ComplexF64,:Float64)
+for (geev,gesvd,gesdd,elty,relty,mgpu) in (
+    (:magma_dgeev,:Float64,:Float64,""),
+    (:magma_sgeev,:Float32,:Float32,""),
+    (:magma_cgeev,:ComplexF32,:Float32,""),
+    (:magma_zgeev,:ComplexF64,:Float64,""),
+    (:magma_dgeev_m,:Float64,:Float64,"_m"),
+    (:magma_sgeev_m,:Float32,:Float32,"_m"),
+    (:magma_cgeev_m,:ComplexF32,:Float32,"_m"),
+    (:magma_zgeev_m,:ComplexF64,:Float64,"_m")
 )
 
 @eval begin
-    function geev!(jobvl::AbstractChar,jobvr::AbstractChar,A::AbstractMatrix{$elty})
+    function $(Symbol("geev","$mgpu","!"))(jobvl::AbstractChar,jobvr::AbstractChar,A::AbstractMatrix{$elty})
         n=checksquare(A)
         lvecs = jobvl=='V'
         rvecs = jobvr =='V'
@@ -26,14 +30,14 @@ for (geev,gesvd,gesdd,elty,relty) in (
         work=Vector{$elty}(undef,1)
         lwork=BlasInt(-1)
         info=Ref{BlasInt}()
-        ida=max(1,stride(A,2))
-        idvl=n
-        idvr=n
+        lda=max(1,stride(A,2))
+        ldvl=n
+        ldvr=n
         for i = 1:2
             if is_complex
-                LibMagma.$geev(jobvl_int,jobvr_int,n,A,ida,W,VL,idvl,VR,idvr,work,lwork,rwork,info)
+                LibMagma.$geev(jobvl_int,jobvr_int,n,A,lda,W,VL,ldvl,VR,ldvr,work,lwork,rwork,info)
             else
-                LibMagma.$geev(jobvl_int,jobvr_int,n,A,ida,WR,WI,VL,idvl,VR,idvr,work,lwork,info)
+                LibMagma.$geev(jobvl_int,jobvr_int,n,A,lda,WR,WI,VL,ldvl,VR,ldvr,work,lwork,info)
             end
             checkmagmaerror(info[])
             if i==1
@@ -45,6 +49,18 @@ for (geev,gesvd,gesdd,elty,relty) in (
         is_complex ? (W,VL,VR) : (WR,WI,VL,VR)
     end
 
+end
+
+end
+
+for (geev,gesvd,gesdd,elty,relty) in (
+    (:magma_dgesvd,:magma_dgesdd,:Float64,:Float64),
+    (:magma_sgesvd,:magma_sgesdd,:Float32,:Float32),
+    (:magma_cgesvd,:magma_cgesdd,:ComplexF32,:Float32),
+    (:magma_zgesvd,:magma_zgesdd,:ComplexF64,:Float64)
+)
+
+@eval begin
     function gesvd!(jobu::AbstractChar,jobvt::AbstractChar,A::AbstractMatrix{$elty})
         m,n = size(A)
         minmn=min(m,n)
@@ -60,15 +76,15 @@ for (geev,gesvd,gesdd,elty,relty) in (
         end
         lwork=BlasInt(-1)
         info=Ref{BlasInt}()
-        ida=max(1,stride(A,2))
-        idu=max(1,stride(U,2))
-        idv=max(1,stride(VT,2))
+        lda=max(1,stride(A,2))
+        ldu=max(1,stride(U,2))
+        ldv=max(1,stride(VT,2))
         for i in 1:2
             if is_complex
-                LibMagma.$gesvd(jobu_c,jobvt_c,m,n,A,ida,S,U,idu,VT,idv,work,lwork,rwork,info)
+                LibMagma.$gesvd(jobu_c,jobvt_c,m,n,A,lda,S,U,ldu,VT,ldv,work,lwork,rwork,info)
             else
 
-                LibMagma.$gesvd(jobu_c,jobvt_c,m,n,A,ida,S,U,idu,VT,idv,work,lwork,info)
+                LibMagma.$gesvd(jobu_c,jobvt_c,m,n,A,lda,S,U,ldu,VT,ldv,work,lwork,info)
             end
             checkmagmaerror(info[])
             if i==1
@@ -115,14 +131,14 @@ for (geev,gesvd,gesdd,elty,relty) in (
         lwork=BlasInt(-1)
         iwork  = Vector{BlasInt}(undef, 8*minmn)
         info=Ref{BlasInt}()
-        ida=max(1,stride(A,2))
-        idu=max(1,stride(U,2))
-        idv=max(1,stride(VT,2))
+        lda=max(1,stride(A,2))
+        ldu=max(1,stride(U,2))
+        ldv=max(1,stride(VT,2))
         for i in 1:2
             if is_complex
-                LibMagma.$gesdd(jobz_m,m,n,A,ida,S,U,idu,VT,idv,work,lwork,rwork,iwork,info)
+                LibMagma.$gesdd(jobz_m,m,n,A,lda,S,U,ldu,VT,ldv,work,lwork,rwork,iwork,info)
             else
-                LibMagma.$gesdd(jobz_m,m,n,A,ida,S,U,idu,VT,idv,work,lwork,iwork,info)
+                LibMagma.$gesdd(jobz_m,m,n,A,lda,S,U,ldu,VT,ldv,work,lwork,iwork,info)
             end
             checkmagmaerror(info[])
             if i==1
@@ -167,10 +183,10 @@ for(gebrd,getrf,gelqf,geqlf,geqrf,elty,relty) in (
         work=Vector{$elty}(undef,1)
         lwork=BlasInt(-1)
         info  = Ref{BlasInt}()
-        ida=max(1,stride(A,2))
+        lda=max(1,stride(A,2))
 
         for i= 1:2
-            LibMagma.$gebrd(m,n,A,ida,d,e,tauq,taup,work,lwork,info)
+            LibMagma.$gebrd(m,n,A,lda,d,e,tauq,taup,work,lwork,info)
             checkmagmaerror(info[])
             if i==1
                 lwork=ceil(BlasInt,real(work[1]))
@@ -186,8 +202,8 @@ for(gebrd,getrf,gelqf,geqlf,geqrf,elty,relty) in (
         minmn=min(m,n)
         ipiv=similar(A,BlasInt,minmn)
         info  = Ref{BlasInt}()
-        ida=max(1,stride(A,2))
-        LibMagma.$getrf(m,n,A,ida,ipiv,info)
+        lda=max(1,stride(A,2))
+        LibMagma.$getrf(m,n,A,lda,ipiv,info)
         checkmagmaerror(info[])
         return A,ipiv,info[]
     end
@@ -196,12 +212,12 @@ for(gebrd,getrf,gelqf,geqlf,geqrf,elty,relty) in (
         m,n=size(A)
         minmn=min(m,n)
         tau=similar(A,$elty,minmn)
-        ida=max(1,stride(A,2))
+        lda=max(1,stride(A,2))
         work=Vector{$elty}(undef,1)
         lwork=BlasInt(-1)
         info = Ref{BlasInt}()
         for i= 1:2
-            LibMagma.$gelqf(m,n,A,ida,tau,work,lwork,info)
+            LibMagma.$gelqf(m,n,A,lda,tau,work,lwork,info)
             checkmagmaerror(info[])
             if i==1
                 lwork=ceil(BlasInt,real(work[1]))
@@ -216,12 +232,12 @@ for(gebrd,getrf,gelqf,geqlf,geqrf,elty,relty) in (
         m,n=size(A)
         minmn=min(m,n)
         tau=similar(A,$elty,minmn)
-        ida=max(1,stride(A,2))
+        lda=max(1,stride(A,2))
         work=Vector{$elty}(undef,1)
         lwork=BlasInt(-1)
         info = Ref{BlasInt}()
         for i= 1:2
-            LibMagma.$geqlf(m,n,A,ida,tau,work,lwork,info)
+            LibMagma.$geqlf(m,n,A,lda,tau,work,lwork,info)
             checkmagmaerror(info[])
             if i==1
                 lwork=ceil(BlasInt,real(work[1]))
@@ -236,12 +252,12 @@ for(gebrd,getrf,gelqf,geqlf,geqrf,elty,relty) in (
         m,n=size(A)
         minmn=min(m,n)
         tau=similar(A,$elty,minmn)
-        ida=max(1,stride(A,2))
+        lda=max(1,stride(A,2))
         work=Vector{$elty}(undef,1)
         lwork=BlasInt(-1)
         info = Ref{BlasInt}()
         for i= 1:2
-            LibMagma.$geqrf(m,n,A,ida,tau,work,lwork,info)
+            LibMagma.$geqrf(m,n,A,lda,tau,work,lwork,info)
             checkmagmaerror(info[])
             if i==1
                 lwork = ceil(BlasInt,real(work[1]))
@@ -273,8 +289,8 @@ for (getrf,geqrf,geqrf_m,geqrfnb,getri,getrinb,getrs,elty,relty) in
             minmn=min(m,n)
             ipiv=similar(Matrix(A),BlasInt,minmn)
             info  = Ref{BlasInt}()
-            ida=max(1,stride(A,2))
-            LibMagma.$getrf(m,n,A,ida,ipiv,info)
+            lda=max(1,stride(A,2))
+            LibMagma.$getrf(m,n,A,lda,ipiv,info)
             checkmagmaerror(info[])
             return A,ipiv,info[]
         end
@@ -285,10 +301,10 @@ for (getrf,geqrf,geqrf_m,geqrfnb,getri,getrinb,getrs,elty,relty) in
             nb=LibMagma.$geqrfnb(m,n)
             #println(nb)
             tau=similar(Matrix(A),$elty,minmn)
-            ida=max(1,stride(A,2))
+            lda=max(1,stride(A,2))
             dT=cu(similar(Matrix(A),$elty,(2minmn + ceil(BlasInt,n/32)*32)*nb))
             info = Ref{BlasInt}()
-            LibMagma.$geqrf(m,n,A,ida,tau,dT,info)
+            LibMagma.$geqrf(m,n,A,lda,tau,dT,info)
             return A,tau
     
         end
@@ -296,12 +312,12 @@ for (getrf,geqrf,geqrf_m,geqrfnb,getri,getrinb,getrs,elty,relty) in
             m,n=size(A)
             minmn=min(m,n)
             tau=similar(Matrix(A),$elty,minmn)
-            ida=max(1,stride(A,2))
+            lda=max(1,stride(A,2))
             work=Vector{$elty}(undef,1)
             lwork=BlasInt(-1)
             info = Ref{BlasInt}()
             for i= 1:2
-                LibMagma.$geqrf_m(ngpus,m,n,A,ida,tau,work,lwork,info)
+                LibMagma.$geqrf_m(ngpus,m,n,A,lda,tau,work,lwork,info)
                 checkmagmaerror(info[])
                 if i==1
                     lwork = ceil(BlasInt,real(work[1]))
@@ -317,11 +333,11 @@ for (getrf,geqrf,geqrf_m,geqrfnb,getri,getrinb,getrs,elty,relty) in
             if n != length(ipiv)
                 throw(DimensionMismatch("ipiv has length $(length(ipiv)), but needs $n"))
             end
-            ida=max(1,stride(A,2))
+            lda=max(1,stride(A,2))
             lwork=ceil(BlasInt,real(n*LibMagma.$getrinb(n)))
             work=cu(Vector{$elty}(undef,max(1,lwork)))
             info = Ref{BlasInt}()
-            LibMagma.$getri(n,A,ida,ipiv,work,lwork,info)
+            LibMagma.$getri(n,A,lda,ipiv,work,lwork,info)
             return A
         end
 
@@ -333,10 +349,10 @@ for (getrf,geqrf,geqrf_m,geqrfnb,getri,getrinb,getrs,elty,relty) in
             end
 
             nrhs = size(B, 2)
-            ida=max(1,stride(A,2))
-            idb=max(1,stride(B,2))
+            lda=max(1,stride(A,2))
+            ldb=max(1,stride(B,2))
             info = Ref{BlasInt}()
-            LibMagma.$getrs(trans_m,n,nrhs,A,ida,ipiv,B,idb,info)
+            LibMagma.$getrs(trans_m,n,nrhs,A,lda,ipiv,B,ldb,info)
             return B
 
         end
