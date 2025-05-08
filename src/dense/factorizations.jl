@@ -1,4 +1,4 @@
-for (geev,gesvd,gesdd,elty,relty,mgpu) in (
+for (geev,elty,relty,mgpu) in (
     (:magma_dgeev,:Float64,:Float64,""),
     (:magma_sgeev,:Float32,:Float32,""),
     (:magma_cgeev,:ComplexF32,:Float32,""),
@@ -53,7 +53,7 @@ end
 
 end
 
-for (geev,gesvd,gesdd,elty,relty) in (
+for (gesvd,gesdd,elty,relty) in (
     (:magma_dgesvd,:magma_dgesdd,:Float64,:Float64),
     (:magma_sgesvd,:magma_sgesdd,:Float32,:Float32),
     (:magma_cgesvd,:magma_cgesdd,:ComplexF32,:Float32),
